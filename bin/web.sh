@@ -1,5 +1,5 @@
 Date=$(date +%Y%m%d%H%M)
-
+  
 if [ "$1" = "stop" ]; then
     echo "停止倾斜探测服务器"
     ps aux|grep python|grep server|awk '{print $2}'|xargs kill -9
