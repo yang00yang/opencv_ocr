@@ -8,9 +8,9 @@ import numpy as np
 import json
 import pytesseract
 
-pic_path = "../data/gjj_pic/"
+pic_path = "../data/study_pic/"
 import logging
-logger = logging.getLogger("公积金图片识别")
+logger = logging.getLogger("学信网图片识别")
 
 def init_logger():
     logging.basicConfig(
@@ -123,14 +123,14 @@ def getInfo(x,y,w,h,text):
 if __name__ == '__main__':
     init_logger()
     # 读取文件
-    img_name = "19469159"
-    imagePath = "../data/gjj/" + img_name + ".png"
+    img_name = "tt"
+    imagePath = "../data/study/" + img_name + ".jpg"
     logger.info("图片【%s】识别开始",imagePath)
     pic_path = pic_path + img_name
     if not os.path.exists(pic_path):
         os.mkdir(pic_path)
     img = cv2.imread(imagePath)
     wordInfos = detect(img)
-    label_file = open(pic_path + "/gjj.txt", "w")
+    label_file = open(pic_path + "/study.txt", "w")
     label_file.write(json.dumps(wordInfos,ensure_ascii=False,indent=4))
-    logger.info("识别完成，已生成【%s】",pic_path + "/gjj.txt")
+    logger.info("识别完成，已生成【%s】",pic_path + "/study.txt")

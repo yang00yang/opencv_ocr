@@ -1,172 +1,137 @@
-
-import pytesseract
-import cv2
+import util.opencvUtil as opencvUtil
 import matplotlib
 matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
-import dlib
-import matplotlib.patches as mpatches
+import cv2
+import os
 from skimage import io,draw,transform,color
 import numpy as np
-import pandas as pd
-import re
+import json
+import pytesseract
 
-# 将照片转正
-def rotateIdcard(image):
-    "image :需要处理的图像"
-    ## 使用dlib.get_frontal_face_detector识别人脸
-    detector = dlib.get_frontal_face_detector()
-    dets = detector(image, 2) #使用detector进行人脸检测 dets为返回的结果
-    ## 检测人脸的眼睛所在位置
-    predictor = dlib.shape_predictor("/Users/admin/Downloads/opencv_ocr/shape_predictor_5_face_landmarks.dat")
-    detected_landmarks = predictor(image, dets[0]).parts()
-    landmarks = np.array([[p.x, p.y] for p in detected_landmarks])
-    corner = IDcorner(landmarks)
-    ## 旋转后的图像
-    image2 = transform.rotate(image,corner,clip=False)
-    image2 = np.uint8(image2*255)
-    cv2.imwrite('../data/idcard_pic/image2.jpg', image2)
-    ## 旋转后人脸位置pip
-    det = detector(image2, 2)
-    return image2,det
+pic_path = "../data/idcard_pic/"
+import logging
+logger = logging.getLogger("身份证图片识别")
 
-# 计算图像的身份证倾斜的角度
-def IDcorner(landmarks):
-    """landmarks:检测的人脸5个特征点
-       经过测试使用第0个和第2个特征点计算角度较合适
-    """
-    corner20 =  twopointcor(landmarks[2,:],landmarks[0,:])
-    corner = np.mean([corner20])
-    return corner
+def init_logger():
+    logging.basicConfig(
+        format='%(asctime)s : %(levelname)s : %(message)s',
+        level=logging.DEBUG,
+        handlers=[logging.StreamHandler()])
 
-# 计算眼睛的倾斜角度,逆时针角度
-def twopointcor(point1,point2):
-    """point1 = (x1,y1),point2 = (x2,y2)"""
-    deltxy = point2 - point1
-    corner = np.arctan(deltxy[1] / deltxy[0]) * 180 / np.pi
-    return corner
+def findTextRegion(img):
+    wordInfo = {}
 
-# 定义身份证识别函数
-def Idcard_im2str(image,threshod = 90):
-    # 转正身份证：
-    image2,dets = rotateIdcard(image)
-    # 提取照片的头像
-    # 在图片中标注人脸，并显示
-    left = dets[0].left()
-    top = dets[0].top()
-    right = dets[0].right()
-    bottom = dets[0].bottom()
-    ## 照片的位置（不怎么精确）
-    width = right - left
-    high = top - bottom
-    left2 = np.uint(left - 0.3*width)
-    bottom2 = np.uint(bottom + 0.4*width)
-    ## 身份证上人的照片
-    top2 = np.uint(bottom2+1.8*high)
-    right2 = np.uint(left2+1.6*width)
-    ## [(left2,bottom2),(top2,right2)]
-    rectangle = [(left2,bottom2),(top2,right2)]
-    imageperson = image2[top2:bottom2,left2:right2,:]
-    # 对图像进行处理，转化为灰度图像
-    gray = grayImg(image2,threshod)
-    cv2.imwrite('../data/idcard_pic/gray.jpg', gray)
-    imagebin = preprocess(gray)
-    # 将照片去除
-    imagebin[0:bottom2,left2:-1] = 255
-    # 通过pytesseract库来查看检测效果，但是结果并不是很好
-    text = pytesseract.image_to_string(imagebin,lang='chi_sim')
-    textlist = text.split("\n")
-    textdf = pd.DataFrame({"text":textlist})
-    textdf["textlen"] = textdf.text.apply(len)
-    # 去除长度《＝1的行
-    textdf = textdf[textdf.textlen > 1].reset_index(drop = True)
-    return image2,dets,rectangle,imagebin,textdf
-# 灰度二值
-def grayImg(image2,threshod):
-    # 对图像进行处理，转化为灰度图像
-    gray = cv2.cvtColor(image2, cv2.COLOR_RGB2GRAY)
-    # 二值化
-    retval, gray = cv2.threshold(gray, threshod, 255, cv2.THRESH_OTSU + cv2.THRESH_BINARY)
-    return gray
 
-#腐蚀
-def preprocess(img):
-    #腐蚀
-    kernel = np.ones((1, 1), np.uint8)
-    erosion = cv2.erode(img, kernel)  # 腐蚀
-    return erosion
 
-# 识别身份证的信息
-image = io.imread("../data/idcard_pic/yh.jpg")
-image2,dets,rectangle,imagebin,textdf = Idcard_im2str(image,threshod = 120)
+    return wordInfo
 
-## 对识别的信息进行可视化查看
-plt.figure(figsize=(12,8))
-## 原始图像
-plt.subplot(2,2,1)
-plt.imshow(image)
-plt.axis("off")
-## 修正后图像
-ax = plt.subplot(2,2,2)
-ax.imshow(image2)
-plt.axis("off")
-# 在图片中标注人脸，并显示
-left = dets[0].left()
-top = dets[0].top()
-right = dets[0].right()
-bottom = dets[0].bottom()
-rect = mpatches.Rectangle((left,bottom), (right - left), (top - bottom),
-                          fill=False, edgecolor='red', linewidth=1)
-ax.add_patch(rect)
 
-## 照片的位置（不怎么精确）rectangle = [(left2,bottom2),(top2,right2)]
-width = rectangle[1][1] - rectangle[0][0]
-high = rectangle[1][0] - rectangle[0][1]
-left2 = rectangle[0][0]
-bottom2 = rectangle[0][1]
-rect = mpatches.Rectangle((left2,bottom2), width, high,
-                          fill=False, edgecolor='blue', linewidth=1)
-ax.add_patch(rect)
+def detect(img):
+    # 1.  转化成灰度图
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    cv2.imwrite(pic_path + "/gray.jpg", gray)
+    logger.info("已生成灰度图【%s】", pic_path + "/gray.jpg")
 
-## 显示人的头像
-plt.subplot(2,2,3)
-## 身份证上人的照片
-top2 = bottom2+high
-right2 = left2+width
-image3 = image2[top2:bottom2,left2:right2,:]
-plt.imshow(image3)
-cv2.imwrite('../data/idcard_pic/image3.jpg', image3)
-plt.axis("off")
-## 显示而值化图像
-plt.subplot(2,2,4)
-plt.imshow(imagebin,cmap=plt.cm.gray)
-cv2.imwrite('../data/idcard_pic/imagebin.jpg', imagebin)
-plt.axis("off")
-# plt.show()
+    # 2. 高斯滤波
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    # 3. 自适应二值化方法
+    binary = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 51, 2)
+    cv2.imwrite(pic_path + "/binary.png", binary)
+    # 4. canny边缘检测
+    edged = cv2.Canny(binary, 10, 100)
+    cnts = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # cnts = cnts[0] if imutils.is_cv2() else cnts[1]
+    cnts = cnts[0]
+    docCnt = None
+    # 确保至少有一个轮廓被找到
+    if len(cnts) > 0:
+        # 将轮廓按大小降序排序
+        cnts = sorted(cnts, key=cv2.contourArea, reverse=True)
+        # 对排序后的轮廓循环处理
+        for c in cnts:
+            # 获取近似的轮廓
+            peri = cv2.arcLength(c, True)
+            approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+            # 如果近似轮廓有四个顶点，那么就认为找到了答题卡
+            if len(approx) == 4:
+                docCnt = approx
+                break
+    newimage = img.copy()
+    for i in docCnt:
+        # circle函数为在图像上作图，新建了一个图像用来演示四角选取
+        cv2.circle(newimage, (i[0][0], i[0][1]), 50, (255, 0, 0), -1)
+    cv2.imwrite(pic_path + "/newimage.png", newimage)
+    # paper = four_point_transform(image, docCnt.reshape(4, 2))
+    # 5.根据4个角的坐标值裁剪图片
+    warped = four_point_transform(gray, docCnt.reshape(4, 2))
+    cv2.imwrite(pic_path + "/warped.png", warped)
 
-## 提取相应的信息
-print("姓名:",textdf.text[0])
-print("=====================")
-print("性别:",textdf.text[1].split(" ")[0])
-print("=====================")
-print("民族:",textdf.text[1].split(" ")[-1])
-print("=====================")
-yearnum = re.findall("\d+",textdf.text[2])[0]  ## 提取数字
-print("出生年:",yearnum)
-print("=====================")
-monthnum = re.findall("\d+",textdf.text[2])[1]   ## 提取数字
-print("出生月:",monthnum)
-print("=====================")
-daynum = re.findall("\d+",textdf.text[2])[1]  ## 提取数字
-print("出生日:",daynum)
-print("=====================")
-IDnum = textdf.text.values[-1]
-if (len(IDnum) > 18):   ## 去除不必要的空格
-    IDnum = IDnum.replace(" ","")
-print("公民身份证号:",IDnum)
-print("=====================")
-## 获取地址，因为地址可能会是多行
-desstext = textdf.text.values[3:(textdf.shape[0] - 1)]
-print("地址:","".join(desstext))
-print("=====================")
+    # 7. 划分文字区域
+    regions = findTextRegion(warped)
+    wordInfos = []
+    for reg in regions:
+        x = reg['x']
+        y = reg['y']
+        w = reg['w']
+        h = reg['h']
+        cropImg = gray[y:y + h, x:x + w]
+        text = pytesseract.image_to_string(cropImg, lang='chi_sim')
+        if text == '':
+            continue
+        cv2.imwrite(pic_path + "/" + text +".png", cropImg)
+        word_info = getInfo(x,y,w,h,text)
+        logger.info("备注为【%s】,坐标为【%s】",text,word_info['pos'])
+        wordInfos.append(word_info)
+    cv2.waitKey(0)
+    return wordInfos
 
+
+def four_point_transform(image, docCnt):
+    # 自定义
+    x1,x2 = max(docCnt[0][0],docCnt[1][0]),min(docCnt[2][0],docCnt[3][0])
+    y1,y2 = max(docCnt[0][1],docCnt[3][1]),min(docCnt[1][1],docCnt[2][1])
+    cut_img = image[y1:y2, x1:x2]
+    # opencv
+    # x, y, w, h = cv2.boundingRect(docCnt)
+    # cut_img = image[y:y + h, x:x + w]
+    return cut_img
+
+
+# 根据坐标和备注生成wordinfo对象
+def getInfo(x,y,w,h,text):
+    word_info = {}
+    word_info['word'] = text
+    pos = []
+    pos1 = {}
+    pos1['x'] = x
+    pos1['y'] = y
+    pos2 = {}
+    pos2['x'] = x + w
+    pos2['y'] = y
+    pos3 = {}
+    pos3['x'] = x + w
+    pos3['y'] = y + h
+    pos4 = {}
+    pos4['x'] = x
+    pos4['y'] = y + h
+    pos.append(pos1)
+    pos.append(pos2)
+    pos.append(pos3)
+    pos.append(pos4)
+    word_info['pos'] = pos
+    return word_info
+
+if __name__ == '__main__':
+    init_logger()
+    # 读取文件
+    img_name = "yh"
+    imagePath = "../data/idcard/" + img_name + ".jpg"
+    logger.info("图片【%s】识别开始",imagePath)
+    pic_path = pic_path + img_name
+    if not os.path.exists(pic_path):
+        os.mkdir(pic_path)
+    img = cv2.imread(imagePath)
+    wordInfos = detect(img)
+    label_file = open(pic_path + "/idcard.txt", "w")
+    label_file.write(json.dumps(wordInfos,ensure_ascii=False,indent=4))
+    logger.info("识别完成，已生成【%s】",pic_path + "/idcard.txt")
