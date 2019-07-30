@@ -7,6 +7,7 @@ from skimage import io,draw,transform,color
 import numpy as np
 import json
 import pytesseract
+import base64
 
 pic_path = "../data/gjj_pic/"
 import logging
@@ -39,8 +40,8 @@ def preprocess(gray):
     # dilation2 = cv2.dilate(erosion, element2, iterations=2)
 
     # 7. 存储中间图片
-    cv2.imwrite(pic_path + "/binary.png", binary)
-    cv2.imwrite(pic_path + "/dilation.png", dilation)
+    # cv2.imwrite(pic_path + "/binary.png", binary)
+    # cv2.imwrite(pic_path + "/dilation.png", dilation)
 
     return dilation
 
@@ -72,7 +73,7 @@ def findTextRegion(org, img):
 def detect(img):
     # 1.  转化成灰度图
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    cv2.imwrite(pic_path + "/gray.jpg", gray)
+    # cv2.imwrite(pic_path + "/gray.jpg", gray)
     logger.info("已生成灰度图【%s】", pic_path + "/gray.jpg")
     # 2. 形态学变换的预处理，得到可以查找矩形的图片
     dilation = preprocess(gray)
@@ -86,10 +87,11 @@ def detect(img):
         w = reg['w']
         h = reg['h']
         cropImg = gray[y:y + h, x:x + w]
-        text = pytesseract.image_to_string(cropImg, lang='chi_sim')
+        # text = pytesseract.image_to_string(cropImg, lang='chi_sim')
+        text = '11'
         if text == '':
             continue
-        cv2.imwrite(pic_path + "/" + text +".png", cropImg)
+        # cv2.imwrite(pic_path + "/" + text +".png", cropImg)
         word_info = getInfo(x,y,w,h,text)
         logger.info("备注为【%s】,坐标为【%s】",text,word_info['pos'])
         wordInfos.append(word_info)
@@ -119,6 +121,10 @@ def getInfo(x,y,w,h,text):
     pos.append(pos4)
     word_info['pos'] = pos
     return word_info
+
+def gjj_start(img):
+    wordInfos = detect(img)
+    return wordInfos
 
 if __name__ == '__main__':
     init_logger()

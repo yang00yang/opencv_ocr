@@ -13,4 +13,4 @@ gunicorn\
     --worker-class=gevent \
     --bind=0.0.0.0:8082 \
     --timeout=300 \
-    #>> ./logs/sample_classify_$Date.log 2>&1 &
+    #>> ./logs/opencvOCR_$Date.log 2>&1 &
