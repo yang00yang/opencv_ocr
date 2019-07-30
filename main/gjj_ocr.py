@@ -87,8 +87,7 @@ def detect(img):
         w = reg['w']
         h = reg['h']
         cropImg = gray[y:y + h, x:x + w]
-        # text = pytesseract.image_to_string(cropImg, lang='chi_sim')
-        text = '11'
+        text = pytesseract.image_to_string(cropImg, lang='chi_sim')
         if text == '':
             continue
         # cv2.imwrite(pic_path + "/" + text +".png", cropImg)

@@ -2,6 +2,7 @@
 from flask import Flask,jsonify,request,render_template
 import base64,cv2,numpy as np,logging
 from main import gjj_ocr
+from util import base64
 import  threading
 import  time
 import json
@@ -18,13 +19,7 @@ def index():
 @app.route('/gjj_ocr',methods=['POST'])
 def gjj():
     base64_img = request.form.get('img')
-    # 去掉可能传过来的“data:image/jpeg;base64,”HTML tag头部信息
-    index = base64_img.find(",")
-    if index != -1: base64_img = base64_img[index + 1:]
-    imgString = base64.b64decode(base64_img)
-    logger.debug("格式化base64为" + str(imgString))
-    nparr = np.fromstring(imgString, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    img = base64.base64_to_cv2(base64_img)
     if img is None:
         logger.error("图像解析失败")#有可能从字节数组解析成图片失败
         return "图像角度探测失败"
