@@ -8,6 +8,7 @@ import numpy as np
 import json
 import pytesseract
 import base64
+import requests
 
 pic_path = "../data/gjj_pic/"
 import logging
@@ -69,6 +70,23 @@ def findTextRegion(org, img):
 
     return regions
 
+def cv2_base64(image):
+    base64_str = cv2.imencode('.jpg', image)[1].tostring()
+    base64_str = base64.b64encode(base64_str)
+    return base64_str
+
+def imageToString(img):
+    base64_data = cv2_base64(img)
+    imgStr = base64_data.decode()
+    content = []
+    img = \
+        {"img": imgStr}
+    content.append(img)
+    content = json.dumps(content)
+    r = requests.post(url='http://ai2.creditease.corp/crnn', data=content)
+    c = json.loads(r.content)
+    prism_wordsInfo = c["prism_wordsInfo"]
+    return  prism_wordsInfo[0]["word"]
 
 def detect(img):
     # 1.  转化成灰度图
@@ -87,7 +105,8 @@ def detect(img):
         w = reg['w']
         h = reg['h']
         cropImg = gray[y:y + h, x:x + w]
-        text = pytesseract.image_to_string(cropImg, lang='chi_sim')
+        # text = pytesseract.image_to_string(cropImg, lang='chi_sim')
+        text = imageToString(cropImg)
         if text == '':
             continue
         # cv2.imwrite(pic_path + "/" + text +".png", cropImg)
