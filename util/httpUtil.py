@@ -2,7 +2,8 @@ import json
 from util import base64
 import requests
 
-deep_url = "http://ai2.creditease.corp/crnn"
+#deep_url = "http://ai2.creditease.corp/crnn"
+deep_url = "http://127.0.0.1:8081/crnn"
 
 def imageToString(img):
     base64_data = base64.cv2_to_base64(img)
@@ -26,7 +27,7 @@ def imageArrayToTextList(imgs):
         content.append(img)
     content = json.dumps(content)
     r = requests.post(url=deep_url, data=content)
-    print("得到结果为" + str(r))
+    print("得到结果为" + str(r.content))
     c = json.loads(r.content)
     prism_wordsInfo = c["prism_wordsInfo"]
-    return prism_wordsInfo
+    return prism_wordsInfo,c["sid"]

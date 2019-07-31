@@ -91,13 +91,13 @@ def detect(img):
         text = ''
         word_info = getInfo(x,y,w,h,text)
         wordInfos.append(word_info)
-    text_list = httpUtil.imageArrayToTextList(imgInfos)
+    text_list,sid = httpUtil.imageArrayToTextList(imgInfos)
     for index in range(len(wordInfos)):
         if text_list[index]:
             logger.info("备注为【%s】,坐标为【%s】", text_list[index]['word'], wordInfos[index]['pos'])
             wordInfos[index]['word'] = text_list[index]['word']
     cv2.waitKey(0)
-    return wordInfos
+    return wordInfos,sid
 
 # 根据坐标和备注生成wordinfo对象
 def getInfo(x,y,w,h,text):
@@ -124,7 +124,7 @@ def getInfo(x,y,w,h,text):
     return word_info
 
 def gjj_start(img):
-    wordInfos = detect(img)
+    wordInfos,sid = detect(img)
     content = ""
     for word in wordInfos:
         content += word['word']
@@ -140,6 +140,7 @@ def gjj_start(img):
     result['prism_version'] = "1.0"
     result['prism_wnum'] = len(wordInfos)
     result['prism_wordsInfo'] = wordInfos
+    result['sid'] = sid
     return result
 
 if __name__ == '__main__':
