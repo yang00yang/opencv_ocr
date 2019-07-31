@@ -25,8 +25,8 @@ def gjj():
         return "图像角度探测失败"
 
     logger.debug("从字节数组变成图像的shape:%r",img.shape)
-    wordsInfo = gjj_ocr.gjj_start(img)
-    return jsonify({'result': wordsInfo})
+    result = gjj_ocr.gjj_start(img)
+    return jsonify(result)
 
 def init_logger():
     logging.basicConfig(

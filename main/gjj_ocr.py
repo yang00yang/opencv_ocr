@@ -125,7 +125,22 @@ def getInfo(x,y,w,h,text):
 
 def gjj_start(img):
     wordInfos = detect(img)
-    return wordInfos
+    content = ""
+    for word in wordInfos:
+        content += word['word']
+        content += " "
+    height = img.shape[0]
+    width = img.shape[1]
+    result = {}
+    result['content'] = content
+    result['height'] = height
+    result['orgHeight'] = height
+    result['width'] = width
+    result['orgWidth'] = width
+    result['prism_version'] = "1.0"
+    result['prism_wnum'] = len(wordInfos)
+    result['prism_wordsInfo'] = wordInfos
+    return result
 
 if __name__ == '__main__':
     init_logger()
@@ -137,7 +152,7 @@ if __name__ == '__main__':
     if not os.path.exists(pic_path):
         os.mkdir(pic_path)
     img = cv2.imread(imagePath)
-    wordInfos = detect(img)
+    result = gjj_start(img)
     label_file = open(pic_path + "/gjj.txt", "w")
-    label_file.write(json.dumps(wordInfos,ensure_ascii=False,indent=4))
+    label_file.write(json.dumps(result,ensure_ascii=False,indent=4))
     logger.info("识别完成，已生成【%s】",pic_path + "/gjj.txt")
