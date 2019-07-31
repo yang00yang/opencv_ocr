@@ -26,7 +26,7 @@ def imageArrayToTextList(imgs):
         content.append(img)
     content = json.dumps(content)
     r = requests.post(url=deep_url, data=content)
-    print("得到结果为" + r.content)
+    print("得到结果为" + str(r))
     c = json.loads(r.content)
     prism_wordsInfo = c["prism_wordsInfo"]
     return prism_wordsInfo
