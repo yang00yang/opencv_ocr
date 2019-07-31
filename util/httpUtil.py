@@ -28,6 +28,6 @@ def imageArrayToTextList(imgs):
     content = json.dumps(content)
     r = requests.post(url=deep_url, data=content)
     print("得到结果为" + str(r.content))
-    c = json.loads(r.content)
+    c = json.loads(r.content.decode('utf-8'))
     prism_wordsInfo = c["prism_wordsInfo"]
     return prism_wordsInfo,c["sid"]
