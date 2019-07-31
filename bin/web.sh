@@ -6,11 +6,11 @@ if [ "$1" = "stop" ]; then
     exit
 fi
 
-#nohup \
+nohup \
 gunicorn\
     web.server:app \
     --workers=1 \
     --worker-class=gevent \
-    --bind=0.0.0.0:8082 \
+    --bind=0.0.0.0:8083 \
     --timeout=300 \
-    #>> ./logs/opencvOCR_$Date.log 2>&1 &
+    >> ./logs/opencvOCR_$Date.log 2>&1 &

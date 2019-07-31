@@ -6,9 +6,7 @@ import os
 from skimage import io,draw,transform,color
 import numpy as np
 import json
-import pytesseract
-import base64
-import requests
+from util import httpUtil
 
 pic_path = "../data/gjj_pic/"
 import logging
@@ -70,49 +68,34 @@ def findTextRegion(org, img):
 
     return regions
 
-def cv2_base64(image):
-    base64_str = cv2.imencode('.jpg', image)[1].tostring()
-    base64_str = base64.b64encode(base64_str)
-    return base64_str
-
-def imageToString(img):
-    base64_data = cv2_base64(img)
-    imgStr = base64_data.decode()
-    content = []
-    img = \
-        {"img": imgStr}
-    content.append(img)
-    content = json.dumps(content)
-    r = requests.post(url='http://ai2.creditease.corp/crnn', data=content)
-    c = json.loads(r.content)
-    prism_wordsInfo = c["prism_wordsInfo"]
-    return  prism_wordsInfo[0]["word"]
-
 def detect(img):
     # 1.  转化成灰度图
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # cv2.imwrite(pic_path + "/gray.jpg", gray)
-    logger.info("已生成灰度图【%s】", pic_path + "/gray.jpg")
+    # logger.info("已生成灰度图【%s】", pic_path + "/gray.jpg")
     # 2. 形态学变换的预处理，得到可以查找矩形的图片
     dilation = preprocess(gray)
 
     # 3. 查找和筛选文字区域
     regions = findTextRegion(gray, dilation)
     wordInfos = []
+    imgInfos = []
     for reg in regions:
         x = reg['x']
         y = reg['y']
         w = reg['w']
         h = reg['h']
         cropImg = gray[y:y + h, x:x + w]
-        # text = pytesseract.image_to_string(cropImg, lang='chi_sim')
-        text = imageToString(cropImg)
-        if text == '':
-            continue
+        imgInfos.append(cropImg)
         # cv2.imwrite(pic_path + "/" + text +".png", cropImg)
+        text = ''
         word_info = getInfo(x,y,w,h,text)
-        logger.info("备注为【%s】,坐标为【%s】",text,word_info['pos'])
         wordInfos.append(word_info)
+    text_list = httpUtil.imageArrayToTextList(imgInfos)
+    for index in range(len(wordInfos)):
+        if text_list[index]:
+            logger.info("备注为【%s】,坐标为【%s】", text_list[index]['word'], wordInfos[index]['pos'])
+            wordInfos[index]['word'] = text_list[index]['word']
     cv2.waitKey(0)
     return wordInfos
 
@@ -147,7 +130,7 @@ def gjj_start(img):
 if __name__ == '__main__':
     init_logger()
     # 读取文件
-    img_name = "19469159"
+    img_name = "20196155"
     imagePath = "../data/gjj/" + img_name + ".png"
     logger.info("图片【%s】识别开始",imagePath)
     pic_path = pic_path + img_name
