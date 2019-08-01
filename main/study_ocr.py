@@ -6,11 +6,11 @@ import os
 from skimage import io,draw,transform,color
 import numpy as np
 import json
-import pytesseract
+from util import httpUtil
 
 pic_path = "../data/study_pic/"
 import logging
-logger = logging.getLogger("学信网图片识别")
+logger = logging.getLogger("公积金图片识别")
 
 def init_logger():
     logging.basicConfig(
@@ -39,8 +39,8 @@ def preprocess(gray):
     # dilation2 = cv2.dilate(erosion, element2, iterations=2)
 
     # 7. 存储中间图片
-    cv2.imwrite(pic_path + "/binary.png", binary)
-    cv2.imwrite(pic_path + "/dilation.png", dilation)
+    # cv2.imwrite(pic_path + "/binary.png", binary)
+    # cv2.imwrite(pic_path + "/dilation.png", dilation)
 
     return dilation
 
@@ -68,33 +68,36 @@ def findTextRegion(org, img):
 
     return regions
 
-
 def detect(img):
     # 1.  转化成灰度图
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    cv2.imwrite(pic_path + "/gray.jpg", gray)
-    logger.info("已生成灰度图【%s】", pic_path + "/gray.jpg")
+    # cv2.imwrite(pic_path + "/gray.jpg", gray)
+    # logger.info("已生成灰度图【%s】", pic_path + "/gray.jpg")
     # 2. 形态学变换的预处理，得到可以查找矩形的图片
     dilation = preprocess(gray)
 
     # 3. 查找和筛选文字区域
     regions = findTextRegion(gray, dilation)
     wordInfos = []
+    imgInfos = []
     for reg in regions:
         x = reg['x']
         y = reg['y']
         w = reg['w']
         h = reg['h']
         cropImg = gray[y:y + h, x:x + w]
-        text = pytesseract.image_to_string(cropImg, lang='chi_sim')
-        if text == '':
-            continue
-        cv2.imwrite(pic_path + "/" + text +".png", cropImg)
+        imgInfos.append(cropImg)
+        # cv2.imwrite(pic_path + "/" + text +".png", cropImg)
+        text = ''
         word_info = getInfo(x,y,w,h,text)
-        logger.info("备注为【%s】,坐标为【%s】",text,word_info['pos'])
         wordInfos.append(word_info)
+    text_list,sid = httpUtil.imageArrayToTextList(imgInfos)
+    for index in range(len(wordInfos)):
+        if text_list[index]:
+            logger.info("备注为【%s】,坐标为【%s】", text_list[index]['word'], wordInfos[index]['pos'])
+            wordInfos[index]['word'] = text_list[index]['word']
     cv2.waitKey(0)
-    return wordInfos
+    return wordInfos,sid
 
 # 根据坐标和备注生成wordinfo对象
 def getInfo(x,y,w,h,text):
@@ -120,6 +123,26 @@ def getInfo(x,y,w,h,text):
     word_info['pos'] = pos
     return word_info
 
+def study_start(img):
+    wordInfos,sid = detect(img)
+    content = ""
+    for word in wordInfos:
+        content += word['word']
+        content += " "
+    height = img.shape[0]
+    width = img.shape[1]
+    result = {}
+    result['content'] = content
+    result['height'] = height
+    result['orgHeight'] = height
+    result['width'] = width
+    result['orgWidth'] = width
+    result['prism_version'] = "1.0"
+    result['prism_wnum'] = len(wordInfos)
+    result['prism_wordsInfo'] = wordInfos
+    result['sid'] = sid
+    return result
+
 if __name__ == '__main__':
     init_logger()
     # 读取文件
@@ -130,7 +153,7 @@ if __name__ == '__main__':
     if not os.path.exists(pic_path):
         os.mkdir(pic_path)
     img = cv2.imread(imagePath)
-    wordInfos = detect(img)
+    result = study_start(img)
     label_file = open(pic_path + "/study.txt", "w")
-    label_file.write(json.dumps(wordInfos,ensure_ascii=False,indent=4))
+    label_file.write(json.dumps(result,ensure_ascii=False,indent=4))
     logger.info("识别完成，已生成【%s】",pic_path + "/study.txt")
