@@ -46,3 +46,55 @@ def drawContours(img,contours):
 def connectedComponents(img):
     ret, labels = cv2.connectedComponents(img, connectivity=None)
     return labels
+
+# 降噪
+def noise_remove_cv2(image, k):
+    """
+    8邻域降噪
+    Args:
+        image: 图片
+        k: 判断阈值
+
+    Returns:
+
+    """
+
+    def calculate_noise_count(img_obj, w, h):
+        """
+        计算邻域非白色的个数
+        Args:
+            img_obj: img obj
+            w: width
+            h: height
+        Returns:
+            count (int)
+        """
+        count = 0
+        width, height = img_obj.shape
+        for _w_ in [w - 1, w, w + 1]:
+            for _h_ in [h - 1, h, h + 1]:
+                if _w_ > width - 1:
+                    continue
+                if _h_ > height - 1:
+                    continue
+                if _w_ == w and _h_ == h:
+                    continue
+                if img_obj[_w_, _h_] < 230:  # 二值化的图片设置为255
+                    count += 1
+        return count
+
+    w, h = image.shape
+    for _w in range(w):
+        for _h in range(h):
+            if _w == 0 or _h == 0:
+                image[_w, _h] = 255
+                continue
+            # 计算邻域pixel值小于255的个数
+            pixel = image[_w, _h]
+            if pixel == 255:
+                continue
+
+            if calculate_noise_count(image, _w, _h) < k:
+                image[_w, _h] = 255
+
+    return image
