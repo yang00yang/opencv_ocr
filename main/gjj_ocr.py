@@ -7,6 +7,7 @@ from skimage import io,draw,transform,color
 import numpy as np
 import json
 from util import httpUtil
+from operator import itemgetter, attrgetter
 
 pic_path = "../data/gjj_pic/"
 import logging
@@ -50,11 +51,6 @@ def findTextRegion(org, img):
 
     # 1. 查找轮廓
     contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    maxArea = 0
-    maxContour = 0
-
-
     for i in range(len(contours)):
         cnt = contours[i]
         x, y, w, h = cv2.boundingRect(cnt)
@@ -80,6 +76,16 @@ def detect(img):
     regions = findTextRegion(gray, dilation)
     wordInfos = []
     imgInfos = []
+    regions = sorted(regions, key=lambda e: (e.__getitem__('y')))
+    can_y = regions[0]['y']
+    for reg in regions:
+        y = reg['y']
+        h = reg['h']
+        if (can_y <= y+h/4) & (can_y >= y-h/4):
+            reg['y'] = can_y
+        else:
+            can_y = y
+    regions = sorted(regions, key=lambda e:(e.__getitem__('y'), e.__getitem__('x')))
     for reg in regions:
         x = reg['x']
         y = reg['y']
