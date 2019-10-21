@@ -27,11 +27,11 @@ def preprocess(gray):
     ret, binary = cv2.threshold(sobel, 0, 255, cv2.THRESH_OTSU + cv2.THRESH_BINARY)
 
     # 3. 膨胀和腐蚀操作的核函数
-    element1 = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 9))
+    element1 = cv2.getStructuringElement(cv2.MORPH_RECT, (18, 4))
     element2 = cv2.getStructuringElement(cv2.MORPH_RECT, (24, 6))
 
     # 4. 膨胀一次，让轮廓突出
-    dilation = cv2.dilate(binary, element2, iterations=1)
+    dilation = cv2.dilate(binary, element1, iterations=1)
 
     # 5. 腐蚀一次，去掉细节，如表格线等。注意这里去掉的是竖直的线
     # erosion = cv2.erode(dilation, element1, iterations=1)
@@ -40,8 +40,8 @@ def preprocess(gray):
     # dilation2 = cv2.dilate(erosion, element2, iterations=2)
 
     # 7. 存储中间图片
-    # cv2.imwrite(pic_path + "/binary.png", binary)
-    # cv2.imwrite(pic_path + "/dilation.png", dilation)
+    cv2.imwrite(pic_path + "/binary.png", binary)
+    cv2.imwrite(pic_path + "/dilation.png", dilation)
 
     return dilation
 
@@ -77,25 +77,29 @@ def detect(img):
     wordInfos = []
     imgInfos = []
     regions = sorted(regions, key=lambda e: (e.__getitem__('y')))
-    can_y = regions[0]['y']
+    can_y = regions[0]['y'] - 5
     for reg in regions:
         y = reg['y']
         h = reg['h']
-        if (can_y <= y+h/4) & (can_y >= y-h/4):
+        if (can_y <= y+15) & (can_y >= y-15):
             reg['y'] = can_y
         else:
-            can_y = y
+            can_y = y - 5
+            reg['y'] = can_y
     regions = sorted(regions, key=lambda e:(e.__getitem__('y'), e.__getitem__('x')))
+    a = 1
     for reg in regions:
         x = reg['x']
         y = reg['y']
         w = reg['w']
-        h = reg['h']
+        # h = reg['h']
+        h = 25
         cropImg = gray[y:y + h, x:x + w]
         imgInfos.append(cropImg)
-        # cv2.imwrite(pic_path + "/" + text +".png", cropImg)
         text = ''
         word_info = getInfo(x,y,w,h,text)
+        cv2.imwrite(pic_path + "/" + str(a) + ".png", cropImg)
+        a =a +1
         wordInfos.append(word_info)
     text_list,sid = httpUtil.imageArrayToTextList(imgInfos)
     for index in range(len(wordInfos)):
@@ -152,7 +156,7 @@ def gjj_start(img):
 if __name__ == '__main__':
     init_logger()
     # 读取文件
-    img_name = "20196155"
+    img_name = "20191021_1"
     imagePath = "../data/gjj/" + img_name + ".png"
     logger.info("图片【%s】识别开始",imagePath)
     pic_path = pic_path + img_name

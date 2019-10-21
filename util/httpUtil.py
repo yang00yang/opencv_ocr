@@ -2,7 +2,7 @@ import json
 from util import base64
 import requests
 
-deep_url = "http://ai2.creditease.corp/crnn"
+deep_url = "http://ai.creditease.corp/crnn"
 # deep_url = "http://127.0.0.1:8081/crnn"
 
 def imageToString(img):
