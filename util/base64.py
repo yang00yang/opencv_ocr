@@ -3,6 +3,8 @@ import base64,cv2,numpy as np,logging
 
 def base64_to_cv2(base64_img):
     # 去掉可能传过来的“data:image/jpeg;base64,”HTML tag头部信息
+    if base64_img is None:
+        return None
     index = base64_img.find(",")
     if index != -1: base64_img = base64_img[index + 1:]
     imgString = base64.b64decode(base64_img)
